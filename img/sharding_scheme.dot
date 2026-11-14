@@ -1,0 +1,46 @@
+digraph G {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=13, nodesep=0.35, ranksep=0.6, bgcolor="white", pad=0.3, newrank=true];
+  node  [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=11, fillcolor="#ffffff", color="#555555"];
+  edge  [fontname="DejaVu Sans", fontsize=9, color="#555555"];
+
+  app    [label="Приложение\n(backend)", fillcolor="#e8eef7"];
+  router [label="Маршрутизатор запросов\n(ProxySQL / слой шардирования в приложении)\nзапись → master, чтение → slave\nвыбор шарда по ключу", fillcolor="#e8eef7"];
+  app -> router;
+
+  subgraph cluster_users {
+    label="БД users\nshard = user_id % 2"; labelloc="b";
+    style="rounded,filled"; fillcolor="#eef7ee"; color="#7aa77a";
+    u1m [label="users_shard_1\nMASTER (R/W)\nuser_id чётные", fillcolor="#cfe8cf"];
+    u1s [label="users_shard_1\nSLAVE (R/O)", fillcolor="#ffffff"];
+    u2m [label="users_shard_2\nMASTER (R/W)\nuser_id нечётные", fillcolor="#cfe8cf"];
+    u2s [label="users_shard_2\nSLAVE (R/O)", fillcolor="#ffffff"];
+    u1m -> u1s [label=" репликация", style=dashed];
+    u2m -> u2s [label=" репликация", style=dashed];
+  }
+
+  subgraph cluster_books {
+    label="БД books\nшард по диапазону book_id"; labelloc="b";
+    style="rounded,filled"; fillcolor="#f7f1e6"; color="#c0a060";
+    b1m [label="books_shard_1\nMASTER (R/W)\nbook_id 1 – 1 000 000", fillcolor="#f0dfb8"];
+    b1s [label="books_shard_1\nSLAVE (R/O)", fillcolor="#ffffff"];
+    b2m [label="books_shard_2\nMASTER (R/W)\nbook_id > 1 000 000", fillcolor="#f0dfb8"];
+    b2s [label="books_shard_2\nSLAVE (R/O)", fillcolor="#ffffff"];
+    b1m -> b1s [label=" репликация", style=dashed];
+    b2m -> b2s [label=" репликация", style=dashed];
+  }
+
+  subgraph cluster_stores {
+    label="БД stores\nсправочник, без горизонтального шардинга"; labelloc="b";
+    style="rounded,filled"; fillcolor="#f3eaf5"; color="#a07ab0";
+    sm  [label="stores\nMASTER (R/W)", fillcolor="#e3cdea"];
+    ss1 [label="stores\nSLAVE 1 (R/O)", fillcolor="#ffffff"];
+    ss2 [label="stores\nSLAVE 2 (R/O)", fillcolor="#ffffff"];
+    sm -> ss1 [label=" репликация", style=dashed];
+    sm -> ss2 [label=" репликация", style=dashed];
+  }
+
+  router -> u1m; router -> u2m;
+  router -> b1m; router -> b2m;
+  router -> sm;
+  {rank=same; u1m; u2m; b1m; b2m; sm;}
+}
